@@ -9,7 +9,7 @@ import (
 
 type Config struct {
 	Env         string `yaml:"env" env-default:"local"`
-	StoragePath string `yaml:"storage_path" env-default:"/tmp"`
+	StoragePath string `yaml:"storage_path" env-required:"true"`
 	HTTPServer  `yaml:"http_server"`
 }
 
@@ -19,8 +19,9 @@ type HTTPServer struct {
 	IdleTimeout time.Duration `yaml:"idle_timeout" env-default:"10s"`
 }
 
-func MustLoadConfig() Config { //Must приписываем когда не возвращаем ошибку, а кидаем панику. Использовать только в редких случаях здесь обусловлено тем что мы только запускаем программу.
+func MustLoadConfig() *Config { //Must приписываем когда не возвращаем ошибку, а кидаем панику. Использовать только в редких случаях здесь обусловлено тем что мы только запускаем программу.
 	configPath := os.Getenv("CONFIG_PATH")
+
 	if configPath == "" {
 		log.Fatal("CONFIG_PATH environment variable not set")
 	}
@@ -35,5 +36,5 @@ func MustLoadConfig() Config { //Must приписываем когда не в�
 		log.Fatal(err)
 	}
 
-	return config
+	return &config
 }
