@@ -4,12 +4,16 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/mattn/go-sqlite3"
 	_ "modernc.org/sqlite" // init sqlite3 driver
 )
 
 type Storage struct {
 	db *sql.DB
+}
+
+func (s *Storage) SaveURL(urlToSave string, alias string) error {
+	//TODO implement me
+	panic("implement me")
 }
 
 func New(storagePath string) (*Storage, error) {
@@ -21,12 +25,13 @@ func New(storagePath string) (*Storage, error) {
 	}
 	//
 	stmt, err := db.Prepare(`
-    CREATE TABLE IF NOT EXISTS url (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        alias TEXT NOT NULL UNIQUE,
-        url TEXT NOT NULL
-    )
-`)
+	CREATE TABLE IF NOT EXISTS url(
+		id INTEGER PRIMARY KEY,
+		alias TEXT NOT NULL UNIQUE,
+		url TEXT NOT NULL);
+	CREATE INDEX IF NOT EXISTS idx_alias ON url(alias);
+	`)
+
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -48,10 +53,15 @@ func (s *Storage) Save(urlToSave string, alias string) error {
 
 	res, err := stmt.Exec(urlToSave, alias)
 	if err != nil {
-		//TODO: need refactor this
-		if sqliteErr, ok := err.(sqlite3.Error); ok && errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
+		// Проверяем на ошибку уникального ограничения
+		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, sql.ErrTxDone) {
 			return fmt.Errorf("%s: %w", op, err)
 		}
+		// Проверяем на ошибку уникального ограничения по тексту ошибки
+		if err.Error() == "UNIQUE constraint failed: url.alias" {
+			return fmt.Errorf("%s: alias already exists", op)
+		}
+		return fmt.Errorf("%s: %w", op, err)
 	}
 	_ = res
 	return nil

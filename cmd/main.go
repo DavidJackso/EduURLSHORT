@@ -1,14 +1,18 @@
 package main
 
 import (
+	"context"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"log/slog"
+	"net/http"
 	"os"
-	sl "urlshorter/internal/lib/logger/slog"
-	"urlshorter/internal/storage/sqlite"
-
+	"os/signal"
+	"syscall"
+	"time"
 	"urlshorter/internal/config"
+	"urlshorter/internal/http-server/handlers/url/save"
+	"urlshorter/internal/storage/sqlite"
 )
 
 const (
@@ -22,35 +26,64 @@ func main() {
 
 	log := setupLogger(cfg.Env)
 	log.Info("Starting server", slog.String("env", cfg.Env))
-	log.Debug("debug massages are enable")
+	log.Debug("debug messages are enabled")
 
 	storage, err := sqlite.New(cfg.StoragePath)
 	if err != nil {
-		log.Error("failed to init storage", sl.Err(err))
+		log.Error("failed to init storage", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
 	router := chi.NewRouter()
 
 	//middleware
-	router.Use(middleware.RequestID) //Добавляет к каждому запросу request id,удобно для debug
+	router.Use(middleware.RequestID) // Adds request ID for each request, useful for debugging
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
 
-	//TODO: run server
+	router.Post("/url", save.New(log, storage))
+
+	log.Info("Server listening", slog.String("address", cfg.Address))
+
+	srv := &http.Server{
+		Addr:         cfg.Address,
+		Handler:      router,
+		ReadTimeout:  cfg.HTTPServer.Timeout,
+		WriteTimeout: cfg.HTTPServer.Timeout,
+		IdleTimeout:  cfg.HTTPServer.Timeout,
+	}
+
+	// Channel to listen for interrupt signals
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+
+	// Run server in a goroutine
+	go func() {
+		if err := srv.ListenAndServe(); err != nil {
+			log.Error("failed to start server", slog.String("error", err.Error()))
+		}
+	}()
+
+	// Wait for interrupt signal to gracefully shut down the server
+	<-stop
+	log.Info("shutting down server gracefully")
+
+	// Give 5 seconds for ongoing requests to finish
+	timeout := 5 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Error("failed to gracefully shutdown server", slog.String("error", err.Error()))
+	}
+
+	log.Info("server stopped")
 }
 
 func setupLogger(env string) *slog.Logger {
 	var log *slog.Logger
 
 	switch env {
-	case envLocal:
-		log = slog.New(
-			slog.NewTextHandler(
-				os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug},
-			),
-		)
-	case envDev:
+	case envLocal, envDev:
 		log = slog.New(
 			slog.NewTextHandler(
 				os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug},
