@@ -10,36 +10,34 @@ import (
 )
 
 type URLDelete interface {
-	Delete(alias string) (resp *http.Response)
+	Delete(alias string) error
 }
 
 func New(log *slog.Logger, urlDelete URLDelete) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		const op = "handlers.url.redirect.New"
+		const op = "handlers.url.delete.New"
 		log = log.With(
 			slog.String("op", op),
 			slog.String("request_id", middleware.GetReqID(r.Context())),
 		)
 
 		alias := chi.URLParam(r, "alias")
-
 		if alias == "" {
-			log.Error("failed to parse alias", "error")
-
-			render.JSON(w, r, resp.Error("failed to parse alias"))
-
+			log.Error("alias is empty")
+			render.JSON(w, r, resp.Error("alias is required"))
 			return
 		}
 
-		log.Info("alias parse", slog.Any("alias", alias))
+		log.Info("attempting to delete url", slog.String("alias", alias))
 
 		err := urlDelete.Delete(alias)
 		if err != nil {
-			log.Error("failed to delete url", "alias", alias, "error", err)
+			log.Error("failed to delete url", slog.String("alias", alias), slog.Any("error", err))
 			render.JSON(w, r, resp.Error("failed to delete url"))
 			return
 		}
-		log.Info("url success deleted", "alias", alias)
 
+		log.Info("url successfully deleted", slog.String("alias", alias))
+		render.JSON(w, r, resp.OK())
 	}
 }

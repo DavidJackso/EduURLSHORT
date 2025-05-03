@@ -11,11 +11,6 @@ type Storage struct {
 	db *sql.DB
 }
 
-func (s *Storage) SaveURL(urlToSave string, alias string) error {
-	//TODO implement me
-	panic("implement me")
-}
-
 func New(storagePath string) (*Storage, error) {
 	const op = "storage.sqlite.New"
 
@@ -43,7 +38,7 @@ func New(storagePath string) (*Storage, error) {
 	return &Storage{db: db}, nil
 }
 
-func (s *Storage) Save(urlToSave string, alias string) error {
+func (s *Storage) SaveURL(urlToSave string, alias string) error {
 	const op = "storage.sqlite.SaveURL"
 
 	stmt, err := s.db.Prepare("INSERT INTO url (url, alias) VALUES (?, ?)")
@@ -82,7 +77,7 @@ func (s *Storage) GetURL(alias string) (string, error) {
 	return url, nil
 }
 
-func (s *Storage) DeleteURL(alias string) error {
+func (s *Storage) Delete(alias string) error {
 	const op = "storage.sqlite.DeleteURL"
 
 	stmt, err := s.db.Prepare("DELETE FROM url WHERE alias = ?")

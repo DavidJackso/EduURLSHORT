@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"log/slog"
 	"net/http"
 	"os"
@@ -11,9 +9,13 @@ import (
 	"syscall"
 	"time"
 	"urlshorter/internal/config"
+	"urlshorter/internal/http-server/handlers/url/delete"
 	"urlshorter/internal/http-server/handlers/url/redirect"
 	"urlshorter/internal/http-server/handlers/url/save"
 	"urlshorter/internal/storage/sqlite"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 const (
@@ -47,13 +49,14 @@ func main() {
 	router.Use(middleware.RequestID) // Adds request ID for each request, useful for debugging
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
+	router.Use(middleware.Logger)
 
 	router.Route("/url", func(r chi.Router) {
 		r.Use(middleware.BasicAuth("url-shortener", map[string]string{
 			cfg.HTTPServer.User: cfg.HTTPServer.Password,
 		}))
 		r.Post("/", save.New(log, storage))
-		r.Delete("/{alias}", save.New(log, storage))
+		r.Delete("/{alias}", delete.New(log, storage))
 	})
 	router.Get("/{alias}", redirect.New(log, storage))
 
