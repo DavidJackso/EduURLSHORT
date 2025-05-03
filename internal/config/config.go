@@ -18,6 +18,8 @@ type HTTPServer struct {
 	Address     string        `yaml:"address" env-default:"http://localhost:8081"`
 	Timeout     time.Duration `yaml:"timeout" env-default:"4s"`
 	IdleTimeout time.Duration `yaml:"idle_timeout" env-default:"10s"`
+	User        string        `yaml:"user" env-required:"true"`
+	Password    string        `yaml:"password" env:"HTTP_SERVER_PASSWORD"`
 }
 
 func MustLoadConfig() *Config { //Must приписываем когда не возвращаем ошибку, а кидаем панику. Использовать только в редких случаях здесь обусловлено тем что мы только запускаем программу.

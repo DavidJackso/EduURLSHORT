@@ -11,7 +11,7 @@ import (
 )
 
 // TODO:need move in config
-const aliaslength = 6
+const aliasLength = 6
 
 type URLSaver interface {
 	SaveURL(urlToSave string, alias string) error
@@ -56,7 +56,7 @@ func New(log *slog.Logger, urlSaver URLSaver) http.HandlerFunc {
 		}
 		alias := req.Alias
 		if alias == "" {
-			alias = random.NewRandomString(aliaslength)
+			alias = random.NewRandomString(aliasLength)
 		}
 		err = urlSaver.SaveURL(req.URL, alias)
 		if err != nil {

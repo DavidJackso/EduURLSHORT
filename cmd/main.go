@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 	"urlshorter/internal/config"
+	"urlshorter/internal/http-server/handlers/url/redirect"
 	"urlshorter/internal/http-server/handlers/url/save"
 	"urlshorter/internal/storage/sqlite"
 )
@@ -25,12 +26,18 @@ func main() {
 	cfg := config.MustLoadConfig()
 
 	log := setupLogger(cfg.Env)
-	log.Info("Starting server", slog.String("env", cfg.Env))
+	log.Info(
+		"Starting server",
+		slog.String("env", cfg.Env),
+	)
 	log.Debug("debug messages are enabled")
 
 	storage, err := sqlite.New(cfg.StoragePath)
 	if err != nil {
-		log.Error("failed to init storage", slog.String("error", err.Error()))
+		log.Error(
+			"failed to init storage",
+			slog.String("error", err.Error()),
+		)
 		os.Exit(1)
 	}
 
@@ -41,7 +48,14 @@ func main() {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
 
-	router.Post("/url", save.New(log, storage))
+	router.Route("/url", func(r chi.Router) {
+		r.Use(middleware.BasicAuth("url-shortener", map[string]string{
+			cfg.HTTPServer.User: cfg.HTTPServer.Password,
+		}))
+		r.Post("/", save.New(log, storage))
+		r.Delete("/{alias}", save.New(log, storage))
+	})
+	router.Get("/{alias}", redirect.New(log, storage))
 
 	log.Info("Server listening", slog.String("address", cfg.Address))
 
